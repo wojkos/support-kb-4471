@@ -28,8 +28,10 @@ does not close them. Each now has its own ticket.
 <ProblemTable ticket={4471} {issues} />
 
 <Callout kind="warn">
-The parser fix queued for #4471 closes only the <code>parser</code> row. The other two stay open
-until their own tickets are fixed.
+Engineering closed #4471 on 5 October: <code>parser</code> fixed (<code>fix(dates): parse dd/mm for
+eu locales</code>, ticket #1 closed), <code>hint</code> won't fix because booking-v3 is retired (ticket
+#2 closed). <code>shift</code> is still open (ticket #3): the parser fix does not move a date back by
+a day.
 </Callout>
 
 ## How the reports were split
