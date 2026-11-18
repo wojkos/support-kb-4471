@@ -16,25 +16,23 @@
   };
 
   const result = $derived(problemsOf(reports as Report[], ticket, tenantOf, notes.oneDayMove));
-  const misTagged = (g: { problem: Problem; taggedAs: Record<string, number>; reports: Report[] }) =>
-    g.reports.length - (g.taggedAs[g.problem] ?? 0);
 </script>
 
 <p class="sum">
   <strong>{result.merged.length}</strong> reports merged into #{ticket} ·
-  <strong>{result.groups.length}</strong> {result.groups.length === 1 ? 'problem' : 'problems'}
+  <strong>{result.rows.length}</strong> {result.rows.length === 1 ? 'problem' : 'problems'}
 </p>
 
 <table>
   <thead><tr><th>problem</th><th>reports</th><th>tenants</th><th>seen</th><th>intake tag wrong</th><th>ticket</th></tr></thead>
   <tbody>
-    {#each result.groups as g (g.problem)}
+    {#each result.rows as g (g.problem)}
       <tr>
         <td><code>{g.problem}</code> {LABEL[g.problem]}</td>
-        <td><strong>{g.reports.length}</strong></td>
+        <td><strong>{g.reports}</strong>{#if g.filedUnder}*{/if}</td>
         <td>{g.tenants}</td>
         <td>{g.firstSeen} → {g.lastSeen}</td>
-        <td>{misTagged(g)}</td>
+        <td>{g.misTagged}</td>
         <td>
           {#if issues[g.problem]}<a href={issues[g.problem]?.href}>#{issues[g.problem]?.n}</a>{:else}<span class="none">none yet</span>{/if}
         </td>
@@ -43,7 +41,12 @@
   </tbody>
 </table>
 
+{#each result.rows.filter((g) => g.filedUnder) as g (g.problem)}
+  <p class="note">* {g.reports} reports read as a one-day move; filed and counted under <code>{g.filedUnder}</code> by tenant, as the desk files them.</p>
+{/each}
+
 <style>
   .sum { font-size: 1.1rem; }
+  .note { color: var(--muted); font-size: 0.85em; }
   .none { color: var(--warn); font-weight: 600; }
 </style>

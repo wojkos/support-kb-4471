@@ -1,25 +1,41 @@
-// The problems inside one merged ticket. causes.ts places a report by tenant and channel; the desk's
-// own notes (desk-notes.json) pick out reports that are a different bug again: a one-day move, not a
-// day/month swap. Those leave their cause group and form a problem of their own.
-import { groupByCause, uniqueById, type CauseGroup, type Report, type Tenant } from '#lib/kb/causes';
+// The problems inside one merged ticket, counted the way the kb counts them (CauseTable): each report
+// is filed under its cause by tenant and channel (causes.ts). Reports the desk read differently
+// (desk-notes.json, oneDayMove) are a problem of their own too: they stay counted where they are
+// filed and are footnoted there, as readAs() does.
+import { groupByCause, readAs, uniqueById, type CauseGroup, type Report, type Tenant } from '#lib/kb/causes';
 
-export type Problem = 'parser' | 'hint' | 'shift' | 'unplaced';
+export type Problem = CauseGroup['cause'] | 'shift';
 
-export type ProblemGroup = Omit<CauseGroup, 'cause'> & { problem: Problem };
+export type ProblemRow = { problem: Problem; reports: number; tenants: number; firstSeen: string; lastSeen: string; misTagged: number; filedUnder?: CauseGroup['cause'] };
 
 export function problemsOf(
   all: Report[],
   ticket: number,
   tenantOf: (r: Report) => Tenant | undefined,
   oneDayMove: readonly string[],
-): { merged: Report[]; groups: ProblemGroup[] } {
+): { merged: Report[]; rows: ProblemRow[] } {
   const merged = uniqueById(all).filter((r) => r.mergedInto === ticket);
-  const shift = merged.filter((r) => oneDayMove.includes(r.id));
-  const rest = merged.filter((r) => !oneDayMove.includes(r.id));
-  const groups: ProblemGroup[] = groupByCause(rest, tenantOf).map(({ cause, ...g }) => ({ problem: cause, ...g }));
-  if (shift.length) {
-    const [g] = groupByCause(shift, () => undefined); // one group: every report unplaced by cause
-    groups.push({ ...g, problem: 'shift' });
+  const groups = groupByCause(merged, tenantOf);
+  const rows: ProblemRow[] = groups.map((g) => ({
+    problem: g.cause,
+    reports: g.reports.length,
+    tenants: g.tenants,
+    firstSeen: g.firstSeen,
+    lastSeen: g.lastSeen,
+    misTagged: g.reports.length - (g.taggedAs[g.cause] ?? 0),
+  }));
+  const moved = merged.filter((r) => oneDayMove.includes(r.id));
+  if (moved.length) {
+    const days = moved.map((r) => r.receivedAt.slice(0, 10)).sort();
+    rows.push({
+      problem: 'shift',
+      reports: moved.length,
+      tenants: new Set(moved.map((r) => r.tenant)).size,
+      firstSeen: days[0],
+      lastSeen: days[days.length - 1],
+      misTagged: moved.length,
+      filedUnder: groups.find((g) => readAs(g, oneDayMove) > 0)?.cause,
+    });
   }
-  return { merged, groups: groups.sort((a, b) => b.reports.length - a.reports.length) };
+  return { merged, rows };
 }
